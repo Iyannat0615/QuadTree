@@ -1,27 +1,27 @@
-dump;
-insert -40 -40 10 10;
-dump;
-insert 40 -40 10 10;
-insert -40 40 10 10;
-insert -30 40 10 10;
-insert -31 40 10 10;
-insert -32 40 10 10;
-insert -33 40 10 10;
-insert -34 40 10 10;
-insert -35 40 10 10;
-insert -40 30 10 10;
-insert 40 40 10 10;
-dump;
-update 40 40 100 100;
-delete -40 -40;
-delete 40 -40;
-delete -40 40;
-delete 40 40;
-delete -30 40 10 10;
-delete -31 40 10 10;
-delete -32 40 10 10;
-delete -33 40 10 10;
-delete -34 40 10 10;
-delete -35 40 10 10;
-delete -40 30 10 10;
-dump;
+dump
+insert -40 -40 10 10
+dump
+insert 40 -40 10 10
+insert -40 40 10 10
+insert -30 40 10 10
+insert -31 40 10 10
+insert -32 40 10 10
+insert -33 40 10 10
+insert -34 40 10 10
+insert -35 40 10 10
+insert -40 30 10 10
+insert 40 40 10 10
+dump
+update 40 40 100 100
+delete -40 -40
+delete 40 -40
+delete -40 40
+delete 40 40
+delete -30 40 10 10
+delete -31 40 10 10
+delete -32 40 10 10
+delete -33 40 10 10
+delete -34 40 10 10
+delete -35 40 10 10
+delete -40 30 10 10
+dump
