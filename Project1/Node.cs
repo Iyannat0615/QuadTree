@@ -3,126 +3,189 @@ using System.Collections.Generic;
 
 namespace QuadtreeConsole
 {
-    public abstract class Node
+    public class Quadtree
     {
-        public Rectangle Space { get; set; } // Represents the node's area
+        private Node root;
+        private const int InitialSize = 100;
 
-        public Node(Rectangle space)
+        public Quadtree()
         {
-            Space = space;
+            // Initial space of 100x100 centered on 0,0
+            root = new LeafNode(new Rectangle(-InitialSize / 2.0, -InitialSize / 2.0, InitialSize, InitialSize));
         }
 
-        public abstract void Dump(int level); // Abstract method to dump node info
-    }
-
-    public class LeafNode : Node
-    {
-        public List<Rectangle> Objects { get; set; }
-
-        public LeafNode(Rectangle space) : base(space)
-        {
-            Objects = new List<Rectangle>();
-        }
-
-        // Insert a rectangle into this leaf node
         public void Insert(Rectangle rect)
         {
-            if (Space.Contains(rect))
+            Insert(root, rect);
+        }
+
+        private void Insert(Node node, Rectangle rect)
+        {
+            if (node is LeafNode leaf)
             {
-                Objects.Add(rect);
-            }
-        }
-
-        // Delete a rectangle from this leaf node
-        public void Delete(Rectangle rect)
-        {
-            Objects.Remove(rect);
-        }
-
-        // Dump the leaf node's content
-        public override void Dump(int level)
-        {
-            Console.WriteLine(new string(' ', level * 2) + $"LeafNode - ({Space.X}, {Space.Y}) - {Space.Width}x{Space.Height}");
-            foreach (var obj in Objects)
-            {
-                Console.WriteLine(new string(' ', (level + 1) * 2) + $"rectangle - ({obj.X}, {obj.Y}) - {obj.Width}x{obj.Height}");
-            }
-        }
-    }
-
-    public class InternalNode : Node
-    {
-        public Node[] Children { get; set; }
-
-        public InternalNode(Rectangle space) : base(space)
-        {
-            Children = new Node[4]; // 4 quadrants (top-left, top-right, bottom-left, bottom-right)
-        }
-
-        // Split the internal node into 4 child nodes
-        public void Split()
-        {
-            float halfWidth = Space.Width / 2;
-            float halfHeight = Space.Height / 2;
-
-            Children[0] = new LeafNode(new Rectangle(Space.X, Space.Y, halfWidth, halfHeight)); // Top-left
-            Children[1] = new LeafNode(new Rectangle(Space.X + halfWidth, Space.Y, halfWidth, halfHeight)); // Top-right
-            Children[2] = new LeafNode(new Rectangle(Space.X, Space.Y + halfHeight, halfWidth, halfHeight)); // Bottom-left
-            Children[3] = new LeafNode(new Rectangle(Space.X + halfWidth, Space.Y + halfHeight, halfWidth, halfHeight)); // Bottom-right
-        }
-
-        // Insert a rectangle into the internal node or its children
-        public void Insert(Rectangle rect)
-        {
-            if (Children[0] == null) // If the node isn't split, split it
-            {
-                Split();
-            }
-
-            foreach (var child in Children)
-            {
-                if (child.Space.Contains(rect))
+                if (leaf.IsFull)
                 {
-                    if (child is LeafNode leafNode)
-                    {
-                        leafNode.Insert(rect);
-                    }
-                    else
-                    {
-                        ((InternalNode)child).Insert(rect);
-                    }
+                    Split(leaf);
+                    Insert(node, rect); // Retry insertion after splitting
+                }
+                else
+                {
+                    leaf.Rectangles.Add(rect);
                 }
             }
+            else if (node is InternalNode internalNode)
+            {
+                // Determine which quadrant the rectangle belongs to
+                int quadrant = GetQuadrant(internalNode, rect);
+                if (quadrant == -1) return; // Rectangle does not fit in any quadrant
+
+                Insert(internalNode.Children[quadrant], rect);
+            }
         }
 
-        // Delete a rectangle from the internal node or its children
-        public void Delete(Rectangle rect)
+        private void Split(LeafNode leaf)
         {
-            foreach (var child in Children)
+            Rectangle space = leaf.Space;
+            double subWidth = space.Width / 2.0;
+            double subLength = space.Length / 2.0;
+
+            InternalNode internalNode = new InternalNode(space);
+
+            // Create four new quadrants
+            internalNode.Children[0] = new LeafNode(new Rectangle(space.X, space.Y, subLength, subWidth)); // Bottom-Left
+            internalNode.Children[1] = new LeafNode(new Rectangle(space.X + subLength, space.Y, subLength, subWidth)); // Bottom-Right
+            internalNode.Children[2] = new LeafNode(new Rectangle(space.X, space.Y + subWidth, subLength, subWidth)); // Top-Left
+            internalNode.Children[3] = new LeafNode(new Rectangle(space.X + subLength, space.Y + subWidth, subLength, subWidth)); // Top-Right
+
+            // Redistribute existing rectangles
+            foreach (var rect in leaf.Rectangles)
             {
-                if (child.Space.Contains(rect))
+                int quadrant = GetQuadrant(internalNode, rect);
+                if (quadrant != -1)
                 {
-                    if (child is LeafNode leafNode)
-                    {
-                        leafNode.Delete(rect);
-                    }
-                    else
-                    {
-                        ((InternalNode)child).Delete(rect);
-                    }
+                    ((LeafNode)internalNode.Children[quadrant]).Rectangles.Add(rect);
                 }
             }
+
+            leaf.Rectangles.Clear(); // Clear rectangles from the original leaf
+
+            // Replace the leaf node with the internal node
+            if (root == leaf)
+            {
+                root = internalNode;
+            }
+            else
+            {
+                // Find the parent of the leaf node and update its child reference
+                // This part requires you to maintain parent references or search for the parent
+                // For simplicity, we assume the root is always the parent (for now)
+                root = internalNode; // Replace root with internal node
+            }
         }
 
-        // Dump the internal node's content and all child nodes
-        public override void Dump(int level)
+        private int GetQuadrant(InternalNode node, Rectangle rect)
         {
-            Console.WriteLine(new string(' ', level * 2) + $"InternalNode - ({Space.X}, {Space.Y}) - {Space.Width}x{Space.Height}");
+            double midX = node.Space.X + node.Space.Length / 2.0;
+            double midY = node.Space.Y + node.Space.Width / 2.0;
 
-            foreach (var child in Children)
+            if (rect.X < midX && rect.Y < midY) return 0; // Bottom-Left
+            if (rect.X >= midX && rect.Y < midY) return 1; // Bottom-Right
+            if (rect.X < midX && rect.Y >= midY) return 2; // Top-Left
+            if (rect.X >= midX && rect.Y >= midY) return 3; // Top-Right
+
+            return -1; // Doesn't fit in any quadrant
+        }
+
+        public Rectangle Find(double x, double y)
+        {
+            return Find(root, x, y);
+        }
+
+        private Rectangle Find(Node node, double x, double y)
+        {
+            if (node is LeafNode leaf)
             {
-                child.Dump(level + 1);
+                return leaf.Rectangles.Find(r => r.X == x && r.Y == y);
             }
+            else if (node is InternalNode internalNode)
+            {
+                double midX = internalNode.Space.X + internalNode.Space.Length / 2.0;
+                double midY = internalNode.Space.Y + internalNode.Space.Width / 2.0;
+
+                if (x < midX && y < midY) return Find(internalNode.Children[0], x, y); // Bottom-Left
+                if (x >= midX && y < midY) return Find(internalNode.Children[1], x, y); // Bottom-Right
+                if (x < midX && y >= midY) return Find(internalNode.Children[2], x, y); // Top-Left
+                if (x >= midX && y >= midY) return Find(internalNode.Children[3], x, y); // Top-Right
+            }
+
+            return null;
+        }
+
+        public bool Delete(double x, double y)
+        {
+            return Delete(root, x, y);
+        }
+
+        private bool Delete(Node node, double x, double y)
+        {
+            if (node is LeafNode leaf)
+            {
+                return leaf.Rectangles.RemoveAll(r => r.X == x && r.Y == y) > 0;
+            }
+            else if (node is InternalNode internalNode)
+            {
+                double midX = internalNode.Space.X + internalNode.Space.Length / 2.0;
+                double midY = internalNode.Space.Y + internalNode.Space.Width / 2.0;
+
+                if (x < midX && y < midY) return Delete(internalNode.Children[0], x, y); // Bottom-Left
+                if (x >= midX && y < midY) return Delete(internalNode.Children[1], x, y); // Bottom-Right
+                if (x < midX && y >= midY) return Delete(internalNode.Children[2], x, y); // Top-Left
+                if (x >= midX && y >= midY) return Delete(internalNode.Children[3], x, y); // Top-Right
+            }
+
+            return false;
+        }
+
+        public bool Update(double x, double y, double newLength, double newWidth)
+        {
+            return Update(root, x, y, newLength, newWidth);
+        }
+
+        private bool Update(Node node, double x, double y, double newLength, double newWidth)
+        {
+            if (node is LeafNode leaf)
+            {
+                Rectangle rect = leaf.Rectangles.Find(r => r.X == x && r.Y == y);
+                if (rect != null)
+                {
+                    rect.Length = newLength;
+                    rect.Width = newWidth;
+                    return true;
+                }
+                return false;
+            }
+            else if (node is InternalNode internalNode)
+            {
+                double midX = internalNode.Space.X + internalNode.Space.Length / 2.0;
+                double midY = internalNode.Space.Y + internalNode.Space.Width / 2.0;
+
+                if (x < midX && y < midY) return Update(internalNode.Children[0], x, y, newLength, newWidth); // Bottom-Left
+                if (x >= midX && y < midY) return Update(internalNode.Children[1], x, y, newLength, newWidth); // Bottom-Right
+                if (x < midX && y >= midY) return Update(internalNode.Children[2], x, y, newLength, newWidth); // Top-Left
+                if (x >= midX && y >= midY) return Update(internalNode.Children[3], x, y, newLength, newWidth); // Top-Right
+            }
+
+            return false;
+        }
+
+        public void Dump()
+        {
+            Dump(root, 0);
+        }
+
+        private void Dump(Node node, int level)
+        {
+            node.Dump(level);
         }
     }
 }

@@ -1,192 +1,161 @@
 using System;
-using System.Collections.Generic;
+using System.IO;
 
 namespace QuadtreeConsole
 {
-    public class Quadtree
+    internal class Program
     {
-        private Node root;
-        private const int InitialSize = 100;
-
-        public Quadtree()
+        static void Main(string[] args)
         {
-            // Initial space of 100x100 centered on 0,0
-            root = new LeafNode(new Rectangle(-InitialSize / 2.0, -InitialSize / 2.0, InitialSize, InitialSize));
-        }
-
-        public void Insert(Rectangle rect)
-        {
-            Insert(root, rect);
-        }
-
-        private void Insert(Node node, Rectangle rect)
-        {
-            if (node is LeafNode leaf)
+            if (args.Length != 1)
             {
-                if (leaf.IsFull)
-                {
-                    Split(leaf);
-                    Insert(node, rect); // Retry insertion after splitting
-                }
-                else
-                {
-                    leaf.Rectangles.Add(rect);
-                }
+                Console.WriteLine("Usage: QuadtreeConsole <command_file>");
+                return;
             }
-            else if (node is InternalNode internalNode)
-            {
-                // Determine which quadrant the rectangle belongs to
-                int quadrant = GetQuadrant(internalNode, rect);
-                if (quadrant == -1) return; // Rectangle does not fit in any quadrant
 
-                Insert(internalNode.Children[quadrant], rect);
+            string commandFile = args[0];
+
+            if (!File.Exists(commandFile))
+            {
+                Console.WriteLine($"Error: Command file '{commandFile}' not found.");
+                return;
             }
-        }
 
-        private void Split(LeafNode leaf)
-        {
-            Rectangle space = leaf.Space;
-            double subWidth = space.Width / 2.0;
-            double subLength = space.Length / 2.0;
+            Quadtree quadtree = new Quadtree();
 
-            InternalNode internalNode = new InternalNode(space);
-
-            // Create four new quadrants
-            internalNode.Children[0] = new LeafNode(new Rectangle(space.X, space.Y, subLength, subWidth)); // Bottom-Left
-            internalNode.Children[1] = new LeafNode(new Rectangle(space.X + subLength, space.Y, subLength, subWidth)); // Bottom-Right
-            internalNode.Children[2] = new LeafNode(new Rectangle(space.X, space.Y + subWidth, subLength, subWidth)); // Top-Left
-            internalNode.Children[3] = new LeafNode(new Rectangle(space.X + subLength, space.Y + subWidth, subLength, subWidth)); // Top-Right
-
-            // Redistribute existing rectangles
-            foreach (var rect in leaf.Rectangles)
+            try
             {
-                int quadrant = GetQuadrant(internalNode, rect);
-                if (quadrant != -1)
+                string[] commands = File.ReadAllLines(commandFile);
+
+                foreach (string command in commands)
                 {
-                    ((LeafNode)internalNode.Children[quadrant]).Rectangles.Add(rect);
+                    ProcessCommand(quadtree, command);
                 }
             }
-
-            leaf.Rectangles.Clear(); // Clear rectangles from the original leaf
-
-            // Replace the leaf node with the internal node
-            if (root == leaf)
+            catch (Exception ex)
             {
-                root = internalNode;
-            }
-            else
-            {
-                // Find the parent of the leaf node and update its child reference
-                // This part requires you to maintain parent references or search for the parent
-                // For simplicity, we assume the root is always the parent (for now)
-                root = internalNode; // Replace root with internal node
+                Console.WriteLine($"An error occurred: {ex.Message}");
             }
         }
 
-        private int GetQuadrant(InternalNode node, Rectangle rect)
+        static void ProcessCommand(Quadtree quadtree, string command)
         {
-            double midX = node.Space.X + node.Space.Length / 2.0;
-            double midY = node.Space.Y + node.Space.Width / 2.0;
+            string[] parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return;
 
-            if (rect.X < midX && rect.Y < midY) return 0; // Bottom-Left
-            if (rect.X >= midX && rect.Y < midY) return 1; // Bottom-Right
-            if (rect.X < midX && rect.Y >= midY) return 2; // Top-Left
-            if (rect.X >= midX && rect.Y >= midY) return 3; // Top-Right
+            string action = parts[0].ToLower();
 
-            return -1; // Doesn't fit in any quadrant
-        }
-
-        public Rectangle Find(double x, double y)
-        {
-            return Find(root, x, y);
-        }
-
-        private Rectangle Find(Node node, double x, double y)
-        {
-            if (node is LeafNode leaf)
+            try
             {
-                return leaf.Rectangles.Find(r => r.X == x && r.Y == y);
-            }
-            else if (node is InternalNode internalNode)
-            {
-                double midX = internalNode.Space.X + internalNode.Space.Length / 2.0;
-                double midY = internalNode.Space.Y + internalNode.Space.Width / 2.0;
-
-                if (x < midX && y < midY) return Find(internalNode.Children[0], x, y); // Bottom-Left
-                if (x >= midX && y < midY) return Find(internalNode.Children[1], x, y); // Bottom-Right
-                if (x < midX && y >= midY) return Find(internalNode.Children[2], x, y); // Top-Left
-                if (x >= midX && y >= midY) return Find(internalNode.Children[3], x, y); // Top-Right
-            }
-
-            return null;
-        }
-
-        public bool Delete(double x, double y)
-        {
-            return Delete(root, x, y);
-        }
-
-        private bool Delete(Node node, double x, double y)
-        {
-            if (node is LeafNode leaf)
-            {
-                return leaf.Rectangles.RemoveAll(r => r.X == x && r.Y == y) > 0;
-            }
-            else if (node is InternalNode internalNode)
-            {
-                double midX = internalNode.Space.X + internalNode.Space.Length / 2.0;
-                double midY = internalNode.Space.Y + internalNode.Space.Width / 2.0;
-
-                if (x < midX && y < midY) return Delete(internalNode.Children[0], x, y); // Bottom-Left
-                if (x >= midX && y < midY) return Delete(internalNode.Children[1], x, y); // Bottom-Right
-                if (x < midX && y >= midY) return Delete(internalNode.Children[2], x, y); // Top-Left
-                if (x >= midX && y >= midY) return Delete(internalNode.Children[3], x, y); // Top-Right
-            }
-
-            return false;
-        }
-
-        public bool Update(double x, double y, double newLength, double newWidth)
-        {
-            return Update(root, x, y, newLength, newWidth);
-        }
-
-        private bool Update(Node node, double x, double y, double newLength, double newWidth)
-        {
-            if (node is LeafNode leaf)
-            {
-                Rectangle rect = leaf.Rectangles.Find(r => r.X == x && r.Y == y);
-                if (rect != null)
+                switch (action)
                 {
-                    rect.Length = newLength;
-                    rect.Width = newWidth;
-                    return true;
+                    case "insert":
+                        if (parts.Length != 5)
+                        {
+                            Console.WriteLine("Invalid insert command format. Use: insert <x> <y> <length> <width>");
+                            return;
+                        }
+                        double x = double.Parse(parts[1]);
+                        double y = double.Parse(parts[2]);
+                        double length = double.Parse(parts[3]);
+                        double width = double.Parse(parts[4]);
+
+                        Rectangle existingRect = quadtree.Find(x, y);
+                        if (existingRect != null)
+                        {
+                            Console.WriteLine("Warning: A rectangle already exists at this position. Overlapping is allowed.");
+                        }
+
+                        quadtree.Insert(new Rectangle(x, y, length, width));
+                        break;
+
+                    case "find":
+                        if (parts.Length != 3)
+                        {
+                            Console.WriteLine("Invalid find command format. Use: find <x> <y>");
+                            return;
+                        }
+                        double findX = double.Parse(parts[1]);
+                        double findY = double.Parse(parts[2]);
+
+                        Rectangle foundRect = quadtree.Find(findX, findY);
+                        if (foundRect != null)
+                        {
+                            Console.WriteLine($"Rectangle at {findX}, {findY}: {foundRect.Length}x{foundRect.Width}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Nothing is at {findX}, {findY}.");
+                        }
+                        break;
+
+                    case "delete":
+                        if (parts.Length != 3)
+                        {
+                            Console.WriteLine("Invalid delete command format. Use: delete <x> <y>");
+                            return;
+                        }
+                        double deleteX = double.Parse(parts[1]);
+                        double deleteY = double.Parse(parts[2]);
+
+                        if (quadtree.Delete(deleteX, deleteY))
+                        {
+                            Console.WriteLine($"Deleted rectangle at {deleteX}, {deleteY}.");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Nothing to delete at {deleteX}, {deleteY}.");
+                        }
+                        break;
+
+                    case "update":
+                        if (parts.Length != 5)
+                        {
+                            Console.WriteLine("Invalid update command format. Use: update <x> <y> <new_length> <new_width>");
+                            return;
+                        }
+                        double updateX = double.Parse(parts[1]);
+                        double updateY = double.Parse(parts[2]);
+                        double newLength = double.Parse(parts[3]);
+                        double newWidth = double.Parse(parts[4]);
+
+                        if (quadtree.Update(updateX, updateY, newLength, newWidth))
+                        {
+                            Console.WriteLine($"Updated rectangle at {updateX}, {updateY} to {newLength}x{newWidth}.");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Nothing to update at {updateX}, {updateY}.");
+                        }
+                        break;
+
+                    case "dump":
+                        Console.WriteLine("Quadtree Structure:");
+                        quadtree.Dump();
+                        break;
+
+                    case "help":
+                        Console.WriteLine("Available commands:");
+                        Console.WriteLine("  insert <x> <y> <length> <width>");
+                        Console.WriteLine("  find <x> <y>");
+                        Console.WriteLine("  delete <x> <y>");
+                        Console.WriteLine("  update <x> <y> <new_length> <new_width>");
+                        Console.WriteLine("  dump");
+                        break;
+
+                    default:
+                        Console.WriteLine($"Unknown command: {command}. Type 'help' for a list of commands.");
+                        break;
                 }
-                return false;
             }
-            else if (node is InternalNode internalNode)
+            catch (FormatException)
             {
-                double midX = internalNode.Space.X + internalNode.Space.Length / 2.0;
-                double midY = internalNode.Space.Y + internalNode.Space.Width / 2.0;
-
-                if (x < midX && y < midY) return Update(internalNode.Children[0], x, y, newLength, newWidth); // Bottom-Left
-                if (x >= midX && y < midY) return Update(internalNode.Children[1], x, y, newLength, newWidth); // Bottom-Right
-                if (x < midX && y >= midY) return Update(internalNode.Children[2], x, y, newLength, newWidth); // Top-Left
-                if (x >= midX && y >= midY) return Update(internalNode.Children[3], x, y, newLength, newWidth); // Top-Right
+                Console.WriteLine($"Error: Invalid numeric format in command: {command}");
             }
-
-            return false;
-        }
-
-        public void Dump()
-        {
-            Dump(root, 0);
-        }
-
-        private void Dump(Node node, int level)
-        {
-            node.Dump(level);
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing command: {command} - {ex.Message}");
+            }
         }
     }
 }
-
