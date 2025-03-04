@@ -31,7 +31,7 @@ namespace QuadtreeConsole
                 else
                 {
                     leaf.Rectangles.Add(rect);
-                }
+                } 
             }
             else if (node is InternalNode internalNode)
             {
