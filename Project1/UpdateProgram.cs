@@ -40,9 +40,7 @@ namespace QuadtreeConsole
 
         static void ProcessCommand(Quadtree quadtree, string command)
         {
-            string[] parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 0) return;
-
+            string[] parts = command.Split(' ');
             string action = parts[0].ToLower();
 
             try
@@ -52,7 +50,7 @@ namespace QuadtreeConsole
                     case "insert":
                         if (parts.Length != 5)
                         {
-                            Console.WriteLine("Invalid insert command format. Use: insert <x> <y> <length> <width>");
+                            Console.WriteLine("Invalid insert command format.");
                             return;
                         }
                         double x = double.Parse(parts[1]);
@@ -63,7 +61,8 @@ namespace QuadtreeConsole
                         Rectangle existingRect = quadtree.Find(x, y);
                         if (existingRect != null)
                         {
-                            Console.WriteLine("Warning: A rectangle already exists at this position. Overlapping is allowed.");
+                            Console.WriteLine("You can not double insert at a position.");
+                            Environment.Exit(0);
                         }
 
                         quadtree.Insert(new Rectangle(x, y, length, width));
@@ -72,7 +71,7 @@ namespace QuadtreeConsole
                     case "find":
                         if (parts.Length != 3)
                         {
-                            Console.WriteLine("Invalid find command format. Use: find <x> <y>");
+                            Console.WriteLine("Invalid find command format.");
                             return;
                         }
                         double findX = double.Parse(parts[1]);
@@ -86,13 +85,14 @@ namespace QuadtreeConsole
                         else
                         {
                             Console.WriteLine($"Nothing is at {findX}, {findY}.");
+                            Environment.Exit(0);
                         }
                         break;
 
                     case "delete":
                         if (parts.Length != 3)
                         {
-                            Console.WriteLine("Invalid delete command format. Use: delete <x> <y>");
+                            Console.WriteLine("Invalid delete command format.");
                             return;
                         }
                         double deleteX = double.Parse(parts[1]);
@@ -100,18 +100,19 @@ namespace QuadtreeConsole
 
                         if (quadtree.Delete(deleteX, deleteY))
                         {
-                            Console.WriteLine($"Deleted rectangle at {deleteX}, {deleteY}.");
+                            //Console.WriteLine($"Deleted rectangle at {deleteX}, {deleteY}.");
                         }
                         else
                         {
                             Console.WriteLine($"Nothing to delete at {deleteX}, {deleteY}.");
+                            Environment.Exit(0);
                         }
                         break;
 
                     case "update":
                         if (parts.Length != 5)
                         {
-                            Console.WriteLine("Invalid update command format. Use: update <x> <y> <new_length> <new_width>");
+                            Console.WriteLine("Invalid update command format.");
                             return;
                         }
                         double updateX = double.Parse(parts[1]);
@@ -121,40 +122,33 @@ namespace QuadtreeConsole
 
                         if (quadtree.Update(updateX, updateY, newLength, newWidth))
                         {
-                            Console.WriteLine($"Updated rectangle at {updateX}, {updateY} to {newLength}x{newWidth}.");
+                            //Console.WriteLine($"Updated rectangle at {updateX}, {updateY} to {newLength}x{newWidth}.");
                         }
                         else
                         {
                             Console.WriteLine($"Nothing to update at {updateX}, {updateY}.");
+                            Environment.Exit(0);
                         }
                         break;
 
                     case "dump":
-                        Console.WriteLine("Quadtree Structure:");
                         quadtree.Dump();
                         break;
 
-                    case "help":
-                        Console.WriteLine("Available commands:");
-                        Console.WriteLine("  insert <x> <y> <length> <width>");
-                        Console.WriteLine("  find <x> <y>");
-                        Console.WriteLine("  delete <x> <y>");
-                        Console.WriteLine("  update <x> <y> <new_length> <new_width>");
-                        Console.WriteLine("  dump");
-                        break;
-
                     default:
-                        Console.WriteLine($"Unknown command: {command}. Type 'help' for a list of commands.");
+                        Console.WriteLine($"Unknown command: {command}");
                         break;
                 }
             }
             catch (FormatException)
             {
-                Console.WriteLine($"Error: Invalid numeric format in command: {command}");
+                Console.WriteLine("Error: Invalid numeric format in command.");
+                Environment.Exit(0);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing command: {command} - {ex.Message}");
+                Environment.Exit(0);
             }
         }
     }
